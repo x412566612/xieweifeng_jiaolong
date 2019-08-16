@@ -24,7 +24,7 @@
               <span v-show="!show" class="count">{{count}} s</span>
             </el-form-item>
 
-            <el-form-item  prop="checked">
+            <el-form-item >
               <template>
                 <!-- `checked` 为 true 或 false -->
                 <el-checkbox v-model="phone.checked">七天免登陆</el-checkbox>
@@ -34,11 +34,6 @@
             <div class="login-btn">
               <el-button type="primary" @click="submitPhone('phone')">登录</el-button>
             </div>
-            <!-- 登录进度 -->
-            <el-progress ref="jindu" :style="jindustyle"  :text-inside="true"
-                         :stroke-width="18"
-                         :percentage="percent"
-                         status="success"></el-progress>
           </el-form>
 
         </el-tab-pane>
@@ -71,10 +66,11 @@
                 </div>
               </el-form-item>
 
-              <el-form-item  prop="checked">
+              <el-form-item >
                 <template>
                   <!-- `checked` 为 true 或 false -->
                   <el-checkbox v-model="ruleForm.checked">七天免登陆</el-checkbox>
+                  <el-button type="primary"  @click="dialogFormVisible = true">忘记密码</el-button>
                 </template>
               </el-form-item>
 
@@ -92,6 +88,33 @@
       </el-tabs>
     </template>
     </div>
+    <div>
+      <el-dialog title="忘记密码" :visible.sync="dialogFormVisible">
+        <el-form :model="reUser">
+          <el-form-item label="登录名称" :label-width="formLabelWidth">
+            <el-input v-model="reUser.loginName" autocomplete="off"></el-input>
+          </el-form-item>
+          <el-form-item label="绑定邮箱" :label-width="formLabelWidth">
+            <el-input v-model="reUser.email" autocomplete="off"></el-input>
+          </el-form-item>
+          <el-form-item label="邮箱验证码" :label-width="formLabelWidth">
+            <el-input v-model="reUser.code" :inline="true" autocomplete="off"></el-input>
+            <span v-show="show" @click="getEmailCode" style="float: right">获取邮箱验证码</span>
+            <span v-show="!show" class="count" style="float: right">{{count}} s</span>
+          </el-form-item>
+          <el-form-item label="新密码" :label-width="formLabelWidth">
+            <el-input v-model="reUser.password" autocomplete="off"></el-input>
+          </el-form-item>
+          <el-form-item label="确认密码" :label-width="formLabelWidth">
+            <el-input v-model="newpassword" autocomplete="off"></el-input>
+          </el-form-item>
+        </el-form>
+        <div slot="footer" class="dialog-footer">
+          <el-button @click="over()">取 消</el-button>
+          <el-button type="primary" @click="repassword()">确 定</el-button>
+        </div>
+      </el-dialog>
+    </div>
   </div>
 </template>
 
@@ -102,6 +125,12 @@
         name: "login",
       data(){
           return{
+            labelPosition: 'right',
+            emaliCode:"",
+            formLabelWidth: '120px',
+            dialogFormVisible:false,
+            newpassword:"",
+            reUser:{},
             divimg:{
               backgroundImage:"url(" + require('../../assets/yun.jpg') + ")",//设置背景图片的路径
               backgroundRepeat:"no-repeat",//背景图片是否平铺
@@ -184,11 +213,48 @@
           })
       },
       methods:{
-        getTelCode(){
-          if(this.phone.tel==undefined||this.phone.tel==""){
-            alert("手机号码不能为空");
+        repassword(){
+          if(this.newpassword!=this.reUser.password){
+            alert("两次密码不一致");
             return;
           }
+          if(this.reUser.code!=this.emaliCode){
+            alert("邮箱验证码错误");
+            return;
+          }
+          this.$axios.post(this.domain.ssoserverpath+"resetUserPassword",this.reUser).then(response=>{
+              if(response.data.code == 200){
+                alert(response.data.success);
+                document.location.reload();
+              }else {
+                alert(response.data.error);
+              }
+          })
+        },
+        over(){
+            this.emaliCode="";
+            this.reUser={};
+            this.dialogFormVisible=false;
+            this.newpassword="";
+        },
+        getEmailCode(){
+          if(this.reUser.email==undefined||this.reUser.email==""){
+            alert("请输入邮箱");
+            return;
+          }
+          this.timekeeping();
+          this.$axios.post(this.domain.ssoserverpath+"getEmail",{email:this.reUser.email}).then(response=>{
+            if(response.data.code == 200){
+              alert(response.data.success)
+              this.emaliCode = response.data.result;
+            }else {
+              alert(response.data.error);
+            }
+          }).catch(error=>{
+            alert("网络连接超时")
+          })
+        },
+        timekeeping(){
           const TIME_COUNT = 60;
           if (!this.timer) {
             this.count = TIME_COUNT;
@@ -203,6 +269,13 @@
               }
             }, 1000)
           }
+        },
+        getTelCode(){
+          if(this.phone.tel==undefined||this.phone.tel==""){
+            alert("手机号码不能为空");
+            return;
+          }
+          this.timekeeping();
           let t = this.phone.tel;
           this.$axios.post(this.domain.ssoserverpath+"getAuthcode",{tel:t}).then(response=>{
             if(response.data.code==200){
@@ -253,7 +326,6 @@
             map.checked = this.ruleForm.checked;
             //登录
             this.$axios.post(this.domain.ssoserverpath+"login",map).then(response=>{
-              alert("成功");
               this.save(response);
               //关闭加载窗
               this.$data.percent=100

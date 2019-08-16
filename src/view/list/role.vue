@@ -272,7 +272,7 @@
             type: 'warning'
           }).then(() => {
             let map = {};
-            map.id = id;
+            map.id = id.id;
               //根据角色ID查询是否有绑定用户
               this.$axios.post(this.domain.serverpath+"findUserByRoleId",map).then(response=>{
                 //没有绑定用户,才可以删除角色
